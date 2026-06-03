@@ -39,11 +39,24 @@ final class BrightnessManager: ObservableObject {
     private let prefsKey = "BrightBar.DisplayBrightness.v2"
     private let nitsPrefsKey = "BrightBar.DisplayMaxNits.v1"
     private let enabledPrefsKey = "BrightBar.Enabled.v1"
-    private let hotkeyStep = 0.05
+    private let hotkeyStep = BrightnessMath.keyboardStep
     private var dimmingWindows: [CGDirectDisplayID: NSWindow] = [:]
     private var pendingKeyboardDelta = 0.0
     private var keyboardAdjustmentTask: Task<Void, Never>?
     private var appleSiliconDDCServices: [CGDirectDisplayID: AppleSiliconDDC.IOregService] = [:]
+    private var screenParametersObserver: NSObjectProtocol?
+    private var displayRefreshTask: Task<Void, Never>?
+    /// Raw DDC maximum (VCP feature limit) reported per display, used to scale
+    /// brightness writes instead of assuming a fixed 0-100 range.
+    private var ddcMaxValues: [CGDirectDisplayID: Double] = [:]
+    /// Last DDC brightness known to have been accepted by the display. Slider
+    /// changes are optimistic while the I2C write is pending, but failures roll
+    /// back to this value instead of persisting a value the monitor rejected.
+    private var ddcConfirmedBrightness: [CGDirectDisplayID: Double] = [:]
+    /// Latest requested DDC value per display, flushed on a timer so dragging a
+    /// slider does not flood the (slow) I2C bus and stutter.
+    private var pendingDDCWrites: [CGDirectDisplayID: PendingDDCWrite] = [:]
+    private var ddcFlushTask: Task<Void, Never>?
 
     var averageBrightness: Double {
         let controllable = displays.filter(\.isControllable)
@@ -90,6 +103,39 @@ final class BrightnessManager: ObservableObject {
         if !isEnabled {
             setEnabled(false)
         }
+        observeScreenParameterChanges()
+    }
+
+    deinit {
+        if let screenParametersObserver {
+            NotificationCenter.default.removeObserver(screenParametersObserver)
+        }
+    }
+
+    /// Keeps the display list and dimming overlays in sync when monitors are
+    /// connected, disconnected, rearranged, rescaled, or after the Mac wakes.
+    private func observeScreenParameterChanges() {
+        screenParametersObserver = NotificationCenter.default.addObserver(
+            forName: NSApplication.didChangeScreenParametersNotification,
+            object: nil,
+            queue: .main
+        ) { [weak self] _ in
+            Task { @MainActor in
+                self?.scheduleDisplayRefresh()
+            }
+        }
+    }
+
+    /// Coalesces the bursts of notifications macOS posts during a single
+    /// reconfiguration into one refresh, avoiding redundant DDC writes.
+    private func scheduleDisplayRefresh() {
+        displayRefreshTask?.cancel()
+        displayRefreshTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 300_000_000)
+            guard !Task.isCancelled else { return }
+            displayRefreshTask = nil
+            refreshDisplays()
+        }
     }
 
     func refreshKeyboardHooks() {
@@ -124,6 +170,7 @@ final class BrightnessManager: ObservableObject {
             reapplyCurrentBrightness()
         } else {
             cancelPendingKeyboardAdjustment()
+            cancelPendingDDCWrites()
             let hotkeyStatus = HotkeyManager.shared.setEnabled(false)
             optionHotkeysEnabled = hotkeyStatus.optionHotkeys
             functionHotkeysEnabled = hotkeyStatus.functionHotkeys
@@ -148,6 +195,11 @@ final class BrightnessManager: ObservableObject {
         for staleID in Array(dimmingWindows.keys) where !activeDisplayIDs.contains(staleID) {
             closeSoftwareDimming(for: staleID)
         }
+        for staleID in Array(ddcMaxValues.keys) where !activeDisplayIDs.contains(staleID) {
+            ddcMaxValues.removeValue(forKey: staleID)
+            ddcConfirmedBrightness.removeValue(forKey: staleID)
+            pendingDDCWrites.removeValue(forKey: staleID)
+        }
 
         var nextDisplays: [DisplayInfo] = []
         var savedValuesToApply: [(CGDirectDisplayID, Double)] = []
@@ -163,6 +215,10 @@ final class BrightnessManager: ObservableObject {
             let maxNits = loadMaxNits(for: persistentID) ?? defaultMaxNits(isBuiltIn: isBuiltIn)
             let clampedBrightness = BrightnessMath.clampedBrightness(brightness)
 
+            if current.kind == .ddc {
+                ddcConfirmedBrightness[displayID] = BrightnessMath.clampedBrightness(current.value ?? clampedBrightness)
+            }
+
             nextDisplays.append(
                 DisplayInfo(
                     id: displayID,
@@ -177,8 +233,11 @@ final class BrightnessManager: ObservableObject {
                 )
             )
 
-            if let loadedBrightness {
-                savedValuesToApply.append((displayID, loadedBrightness))
+            // Re-apply on detection for saved displays (restore the user's value)
+            // and for software-only displays (so the dimming overlay matches the
+            // brightness shown in the UI instead of leaving the screen undimmed).
+            if loadedBrightness != nil || current.kind == .software {
+                savedValuesToApply.append((displayID, clampedBrightness))
             }
         }
 
@@ -190,6 +249,7 @@ final class BrightnessManager: ObservableObject {
         }
     }
 
+    /// Absolute set used by presets: every controllable display jumps to `value`.
     func setAllBrightness(to value: Double) {
         guard isEnabled else { return }
 
@@ -198,6 +258,9 @@ final class BrightnessManager: ObservableObject {
         }
     }
 
+    /// Relative move used by the global slider: shifts every controllable display
+    /// by the same delta so each keeps its own offset instead of all snapping to
+    /// the average (which caused a visible jump when grabbing the slider).
     func adjustAllBrightness(by delta: Double) {
         guard isEnabled else { return }
 
@@ -240,17 +303,24 @@ final class BrightnessManager: ObservableObject {
 
         let clamped = BrightnessMath.clampedBrightness(value)
         let display = displays[index]
-        let hardwareValue = BrightnessMath.hardwareBrightness(forRequestedBrightness: clamped)
-        let dimmingOpacity = display.controlKind == .software
-            ? BrightnessMath.softwareOnlyOpacity(forRequestedBrightness: clamped)
-            : BrightnessMath.hardwareSubZeroOpacity(forRequestedBrightness: clamped)
+        let hardwareValue = BrightnessMath.hardwareBrightness(forRequestedBrightness: clamped, kind: display.controlKind)
+        let dimmingOpacity = BrightnessMath.overlayOpacity(forRequestedBrightness: clamped, kind: display.controlKind)
         let success: Bool
 
         switch display.controlKind {
         case .native:
             success = setBuiltInBrightness(displayID: displayID, value: hardwareValue)
         case .ddc:
-            success = setExternalBrightness(displayID: displayID, value: hardwareValue)
+            // Optimistic: queue the (slow) hardware write and trust it; the flush
+            // confirms and saves it, or rolls back if the bus rejects the command.
+            scheduleExternalBrightness(
+                displayID: displayID,
+                hardwareValue: hardwareValue,
+                requestedBrightness: clamped,
+                previousBrightness: ddcConfirmedBrightness[displayID] ?? display.brightness,
+                persistentID: display.persistentID
+            )
+            success = true
         case .software:
             success = true
         case .unsupported:
@@ -259,15 +329,19 @@ final class BrightnessManager: ObservableObject {
 
         if success {
             setSoftwareDimming(for: displayID, opacity: dimmingOpacity)
-            saveBrightness(clamped, for: display.persistentID)
-            lastErrorMessage = nil
+            if display.controlKind != .ddc {
+                saveBrightness(clamped, for: display.persistentID)
+                lastErrorMessage = nil
+            }
         } else {
             lastErrorMessage = "Impossible de regler \(display.name)."
         }
 
         var updatedDisplays = displays
         updatedDisplays[index].brightness = success ? clamped : display.brightness
-        updatedDisplays[index].lastWriteFailed = !success
+        if display.controlKind != .ddc {
+            updatedDisplays[index].lastWriteFailed = !success
+        }
         updatedDisplays[index].isSoftwareDimmed = success && dimmingOpacity > 0
         displays = updatedDisplays
     }
@@ -289,6 +363,7 @@ final class BrightnessManager: ObservableObject {
         if let service = appleSiliconDDCServices[displayID],
            let value = AppleSiliconDDC.read(service: service.service, command: ddcBrightnessCommand) {
             let maxValue = max(Double(value.max), 1)
+            ddcMaxValues[displayID] = maxValue
             return (Double(value.current) / maxValue, .ddc)
         }
 
@@ -298,7 +373,9 @@ final class BrightnessManager: ObservableObject {
         IOObjectRelease(framebuffer)
 
         if let value = ddcRead(displayID: displayID, command: ddcBrightnessCommand) {
-            return (Double(value) / 100.0, .ddc)
+            let maxValue = max(Double(value.max), 1)
+            ddcMaxValues[displayID] = maxValue
+            return (Double(value.current) / maxValue, .ddc)
         }
 
         return (nil, .software)
@@ -309,8 +386,89 @@ final class BrightnessManager: ObservableObject {
         return setBrightness(displayID, Float(value)) == kIOReturnSuccess
     }
 
-    private func setExternalBrightness(displayID: CGDirectDisplayID, value: Double) -> Bool {
-        let ddcValue = UInt16(min(max(value * 100, 0), 100))
+    private func scheduleExternalBrightness(
+        displayID: CGDirectDisplayID,
+        hardwareValue: Double,
+        requestedBrightness: Double,
+        previousBrightness: Double,
+        persistentID: String
+    ) {
+        pendingDDCWrites[displayID] = PendingDDCWrite(
+            hardwareValue: hardwareValue,
+            requestedBrightness: requestedBrightness,
+            previousBrightness: previousBrightness,
+            persistentID: persistentID
+        )
+
+        guard ddcFlushTask == nil else { return }
+
+        ddcFlushTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 40_000_000)
+            ddcFlushTask = nil
+            flushPendingDDCWrites()
+        }
+    }
+
+    private func flushPendingDDCWrites() {
+        let writes = pendingDDCWrites
+        pendingDDCWrites.removeAll()
+        guard !writes.isEmpty else { return }
+
+        var updatedDisplays = displays
+        var didChange = false
+
+        for (displayID, write) in writes {
+            let success = writeExternalBrightnessNow(displayID: displayID, value: write.hardwareValue)
+            guard let index = updatedDisplays.firstIndex(where: { $0.id == displayID }) else { continue }
+
+            if updatedDisplays[index].lastWriteFailed != !success {
+                updatedDisplays[index].lastWriteFailed = !success
+                didChange = true
+            }
+
+            if success {
+                saveBrightness(write.requestedBrightness, for: write.persistentID)
+                ddcConfirmedBrightness[displayID] = write.requestedBrightness
+                if updatedDisplays[index].brightness != write.requestedBrightness {
+                    updatedDisplays[index].brightness = write.requestedBrightness
+                    didChange = true
+                }
+                let opacity = BrightnessMath.overlayOpacity(forRequestedBrightness: write.requestedBrightness, kind: updatedDisplays[index].controlKind)
+                if updatedDisplays[index].isSoftwareDimmed != (opacity > 0) {
+                    updatedDisplays[index].isSoftwareDimmed = opacity > 0
+                    didChange = true
+                }
+                lastErrorMessage = nil
+            } else {
+                ddcConfirmedBrightness[displayID] = write.previousBrightness
+                let opacity = BrightnessMath.overlayOpacity(forRequestedBrightness: write.previousBrightness, kind: updatedDisplays[index].controlKind)
+                setSoftwareDimming(for: displayID, opacity: opacity)
+                if updatedDisplays[index].brightness != write.previousBrightness {
+                    updatedDisplays[index].brightness = write.previousBrightness
+                    didChange = true
+                }
+                if updatedDisplays[index].isSoftwareDimmed != (opacity > 0) {
+                    updatedDisplays[index].isSoftwareDimmed = opacity > 0
+                    didChange = true
+                }
+                lastErrorMessage = "Impossible de regler \(updatedDisplays[index].name)."
+            }
+        }
+
+        if didChange {
+            displays = updatedDisplays
+        }
+    }
+
+    private func cancelPendingDDCWrites() {
+        ddcFlushTask?.cancel()
+        ddcFlushTask = nil
+        pendingDDCWrites.removeAll()
+    }
+
+    private func writeExternalBrightnessNow(displayID: CGDirectDisplayID, value: Double) -> Bool {
+        let ddcMax = ddcMaxValues[displayID] ?? BrightnessMath.fallbackDDCMaxValue
+        let ddcValue = BrightnessMath.ddcValue(forHardwareBrightness: value, ddcMax: ddcMax)
         if let service = appleSiliconDDCServices[displayID] {
             return AppleSiliconDDC.write(service: service.service, command: ddcBrightnessCommand, value: ddcValue)
         }
@@ -416,7 +574,7 @@ final class BrightnessManager: ObservableObject {
     }
 
     private func defaultMaxNits(isBuiltIn: Bool) -> Double {
-        isBuiltIn ? 500 : 300
+        isBuiltIn ? BrightnessMath.defaultBuiltInMaxNits : BrightnessMath.defaultExternalMaxNits
     }
 }
 
@@ -642,7 +800,7 @@ private extension BrightnessManager {
         return false
     }
 
-    func ddcRead(displayID: CGDirectDisplayID, command: UInt8) -> UInt16? {
+    func ddcRead(displayID: CGDirectDisplayID, command: UInt8) -> (current: UInt16, max: UInt16)? {
         guard let framebufferPort = Self.framebufferPort(for: displayID) else { return nil }
         defer { IOObjectRelease(framebufferPort) }
 
@@ -721,38 +879,39 @@ private extension BrightnessManager {
         return expectsReply ? replyBuffer : []
     }
 
-    func parseDDCBrightnessReply(_ reply: [UInt8], command: UInt8) -> UInt16? {
+    func parseDDCBrightnessReply(_ reply: [UInt8], command: UInt8) -> (current: UInt16, max: UInt16)? {
         guard let commandIndex = reply.firstIndex(of: command) else { return nil }
 
-        let candidates = [
-            commandIndex + 4,
-            commandIndex + 5,
-        ]
+        // Standard VCP feature reply layout after the opcode:
+        //   +1 type, +2 maxHigh, +3 maxLow, +4 currentHigh, +5 currentLow.
+        let maxHigh = commandIndex + 2
+        let currentHigh = commandIndex + 4
 
-        for index in candidates where index + 1 < reply.count {
-            let value = (UInt16(reply[index]) << 8) | UInt16(reply[index + 1])
-            if value <= 100 {
-                return value
+        guard currentHigh + 1 < reply.count else { return nil }
+
+        let current = (UInt16(reply[currentHigh]) << 8) | UInt16(reply[currentHigh + 1])
+
+        var max: UInt16 = UInt16(BrightnessMath.fallbackDDCMaxValue)
+        if maxHigh + 1 < reply.count {
+            let parsedMax = (UInt16(reply[maxHigh]) << 8) | UInt16(reply[maxHigh + 1])
+            if parsedMax > 0 {
+                max = parsedMax
             }
         }
 
-        return nil
-    }
-}
-
-private extension NSScreen {
-    static func screen(for displayID: CGDirectDisplayID) -> NSScreen? {
-        screens.first { screen in
-            guard let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
-                return false
-            }
-
-            return number.uint32Value == displayID
-        }
+        guard current <= max else { return nil }
+        return (current, max)
     }
 }
 
 private final class DimmingWindow: NSPanel {
     override var canBecomeKey: Bool { false }
     override var canBecomeMain: Bool { false }
+}
+
+private struct PendingDDCWrite {
+    let hardwareValue: Double
+    let requestedBrightness: Double
+    let previousBrightness: Double
+    let persistentID: String
 }

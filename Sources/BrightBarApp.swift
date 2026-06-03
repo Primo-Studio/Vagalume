@@ -8,12 +8,14 @@ struct BrightBarApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var brightnessManager = BrightnessManager()
     @StateObject private var updateManager = UpdateManager()
+    @StateObject private var boostController = XDRBoostController()
 
     var body: some Scene {
         MenuBarExtra {
             ContentView()
                 .environmentObject(brightnessManager)
                 .environmentObject(updateManager)
+                .environmentObject(boostController)
         } label: {
             Image(systemName: "sun.max.fill")
         }
@@ -287,7 +289,6 @@ fileprivate final class BrightnessKeyController {
     private var globalMonitor: Any?
     private var lastFallbackEventTime: TimeInterval = 0
     private var isEnabled = true
-    private var didRequestAccessibilityThisLaunch = false
 
     init(callback: @escaping (_ isUp: Bool) -> Void) {
         self.callback = callback
@@ -301,7 +302,7 @@ fileprivate final class BrightnessKeyController {
     func refreshMode() -> BrightnessKeyMode {
         guard isEnabled else { return .disabled }
 
-        if resumeOrStartInterceptingTap(promptForAccessibility: !didRequestAccessibilityThisLaunch) {
+        if resumeOrStartInterceptingTap(promptForAccessibility: false) {
             stopFallbackMonitors()
             return .intercepting
         }
@@ -325,7 +326,6 @@ fileprivate final class BrightnessKeyController {
     }
 
     func requestAccessibilityPermission() {
-        didRequestAccessibilityThisLaunch = true
         _ = isAccessibilityTrusted(prompt: true)
     }
 
@@ -379,7 +379,6 @@ fileprivate final class BrightnessKeyController {
             return AXIsProcessTrusted()
         }
 
-        didRequestAccessibilityThisLaunch = true
         let trustOptions = [
             kAXTrustedCheckOptionPrompt.takeUnretainedValue() as String: true
         ] as CFDictionary

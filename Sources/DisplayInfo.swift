@@ -1,5 +1,6 @@
-import Foundation
+import AppKit
 import CoreGraphics
+import Foundation
 
 enum BrightnessControlKind: String {
     case native = "macOS"
@@ -39,5 +40,19 @@ struct DisplayInfo: Identifiable, Hashable {
 
     func hash(into hasher: inout Hasher) {
         hasher.combine(id)
+    }
+}
+
+extension NSScreen {
+    /// Resolves the `NSScreen` backing a Core Graphics display ID, or nil if the
+    /// display is no longer attached.
+    static func screen(for displayID: CGDirectDisplayID) -> NSScreen? {
+        screens.first { screen in
+            guard let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else {
+                return false
+            }
+
+            return number.uint32Value == displayID
+        }
     }
 }
