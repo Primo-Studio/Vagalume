@@ -1,7 +1,7 @@
 <?xml version="1.0" standalone="yes"?>
 <rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
     <channel>
-        <title>BrightBar</title>
+        <title>Vagalume</title>
         <item>
             <title>0.1.1</title>
             <pubDate>Tue, 12 May 2026 08:15:09 -0300</pubDate>
@@ -9,7 +9,7 @@
             <sparkle:shortVersionString>0.1.1</sparkle:shortVersionString>
             <sparkle:minimumSystemVersion>14.0</sparkle:minimumSystemVersion>
             <sparkle:hardwareRequirements>arm64</sparkle:hardwareRequirements>
-            <enclosure url="https://github.com/Primo-Studio/BrightBar/releases/download/v0.1.1/BrightBar-0.1.1-macOS.zip" length="1197207" type="application/octet-stream" sparkle:edSignature="KMn+SjtbXpX1o2a/j7RKsX9ZRmN2d0qW99VcF+PcrsKh7suGoq0iRA2wSKYmx9xgG1vRWu2ffjwQ9yFr1Ni+CQ=="/>
+            <enclosure url="https://github.com/Primo-Studio/Vagalume/releases/download/v0.1.1/Vagalume-0.1.1-macOS.zip" length="1197207" type="application/octet-stream" sparkle:edSignature="KMn+SjtbXpX1o2a/j7RKsX9ZRmN2d0qW99VcF+PcrsKh7suGoq0iRA2wSKYmx9xgG1vRWu2ffjwQ9yFr1Ni+CQ=="/>
         </item>
     </channel>
 </rss>

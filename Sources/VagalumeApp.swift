@@ -4,7 +4,7 @@ import IOKit.hidsystem
 import SwiftUI
 
 @main
-struct BrightBarApp: App {
+struct VagalumeApp: App {
     @NSApplicationDelegateAdaptor(AppDelegate.self) private var appDelegate
     @StateObject private var brightnessManager = BrightnessManager()
     @StateObject private var updateManager = UpdateManager()

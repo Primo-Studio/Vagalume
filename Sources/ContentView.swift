@@ -44,7 +44,7 @@ struct ContentView: View {
                 .font(.title3)
 
             VStack(alignment: .leading, spacing: 1) {
-                Text("BrightBar")
+                Text("Vagalume")
                     .font(.headline)
                 Text(manager.statusSummary)
                     .font(.caption)
@@ -65,9 +65,9 @@ struct ContentView: View {
                     .foregroundStyle(manager.isEnabled ? .green : .orange)
             }
             .buttonStyle(.borderless)
-            .help(manager.isEnabled ? "Activer/desactiver - Coupe BrightBar, libere F1/F2 et retire les overlays." : "Activer/desactiver - Reactive BrightBar et reapplique la luminosite actuelle.")
-            .accessibilityLabel(manager.isEnabled ? "Desactiver BrightBar" : "Activer BrightBar")
-            .accessibilityHint(manager.isEnabled ? "Coupe le controle de luminosite et rend F1/F2 a macOS." : "Reactive le controle de luminosite BrightBar.")
+            .help(manager.isEnabled ? "Activer/desactiver - Coupe Vagalume, libere F1/F2 et retire les overlays." : "Activer/desactiver - Reactive Vagalume et reapplique la luminosite actuelle.")
+            .accessibilityLabel(manager.isEnabled ? "Desactiver Vagalume" : "Activer Vagalume")
+            .accessibilityHint(manager.isEnabled ? "Coupe le controle de luminosite et rend F1/F2 a macOS." : "Reactive le controle de luminosite Vagalume.")
 
             Button {
                 manager.refreshDisplays()
@@ -94,7 +94,7 @@ struct ContentView: View {
                 Image(systemName: "exclamationmark.triangle.fill")
                     .foregroundStyle(.orange)
                     .help("Alerte - \(message)")
-                    .accessibilityLabel("Alerte BrightBar")
+                    .accessibilityLabel("Alerte Vagalume")
                     .accessibilityHint(message)
             }
 
@@ -107,7 +107,7 @@ struct ContentView: View {
                 .buttonStyle(.borderless)
                 .help("Autorisation clavier - Ouvre la demande Accessibilite pour intercepter les touches soleil/F1/F2.")
                 .accessibilityLabel("Demander l'autorisation clavier")
-                .accessibilityHint("Affiche la demande macOS Accessibilite pour permettre a BrightBar d'intercepter les touches de luminosite.")
+                .accessibilityHint("Affiche la demande macOS Accessibilite pour permettre a Vagalume d'intercepter les touches de luminosite.")
             }
 
             Button {
@@ -117,7 +117,7 @@ struct ContentView: View {
             }
             .buttonStyle(.borderless)
             .disabled(!updateManager.canCheckForUpdates)
-            .help("Mises a jour - Verifie manuellement s'il existe une nouvelle version de BrightBar.")
+            .help("Mises a jour - Verifie manuellement s'il existe une nouvelle version de Vagalume.")
             .accessibilityLabel("Verifier les mises a jour")
             .accessibilityHint("Lance la verification Sparkle des mises a jour.")
 
@@ -126,13 +126,13 @@ struct ContentView: View {
             }
             .buttonStyle(.borderless)
             .font(.caption)
-            .help("Quitter - Ferme completement BrightBar.")
-            .accessibilityHint("Ferme l'application BrightBar.")
+            .help("Quitter - Ferme completement Vagalume.")
+            .accessibilityHint("Ferme l'application Vagalume.")
         }
     }
 
     private var keyboardStatusText: String {
-        guard manager.isEnabled else { return "BrightBar desactive" }
+        guard manager.isEnabled else { return "Vagalume desactive" }
 
         return switch manager.brightnessKeyMode {
         case .intercepting:
@@ -164,18 +164,18 @@ struct ContentView: View {
 
     private var keyboardStatusHelp: String {
         guard manager.isEnabled else {
-            return "BrightBar ne capte plus F1/F2 et coupe le dimming logiciel."
+            return "Vagalume ne capte plus F1/F2 et coupe le dimming logiciel."
         }
 
         return switch manager.brightnessKeyMode {
         case .intercepting:
-            "BrightBar intercepte les touches soleil macOS et controle les ecrans."
+            "Vagalume intercepte les touches soleil macOS et controle les ecrans."
         case .observing:
-            "BrightBar utilise les raccourcis F1/F2 standards si disponibles, mais n'intercepte pas encore les touches soleil macOS. Autorise BrightBar dans Reglages Systeme > Confidentialite et securite > Accessibilite."
+            "Vagalume utilise les raccourcis F1/F2 standards si disponibles, mais n'intercepte pas encore les touches soleil macOS. Autorise Vagalume dans Reglages Systeme > Confidentialite et securite > Accessibilite."
         case .disabled:
             hasFallbackHotkeys
-                ? "Utilise les raccourcis clavier disponibles. Autorise BrightBar dans Accessibilite pour intercepter les touches soleil."
-                : "Autorise BrightBar dans Reglages Systeme > Confidentialite et securite > Accessibilite."
+                ? "Utilise les raccourcis clavier disponibles. Autorise Vagalume dans Accessibilite pour intercepter les touches soleil."
+                : "Autorise Vagalume dans Reglages Systeme > Confidentialite et securite > Accessibilite."
         }
     }
 
@@ -239,7 +239,7 @@ private struct GlobalBrightnessView: View {
                 .disabled(!manager.isEnabled)
                 .help("Luminosite globale - Ajuste tous les ecrans controlables en conservant leurs ecarts.")
                 .accessibilityLabel("Luminosite de tous les ecrans")
-                .accessibilityHint("Modifie la luminosite de tous les ecrans controles par BrightBar.")
+                .accessibilityHint("Modifie la luminosite de tous les ecrans controles par Vagalume.")
                 .onChange(of: sliderValue) { oldValue, newValue in
                     guard isEditing else { return }
                     manager.adjustAllBrightness(by: newValue - oldValue)
@@ -266,7 +266,7 @@ private struct GlobalBrightnessView: View {
             }
 
             if !manager.isEnabled {
-                Label("BrightBar est desactive: dimming coupe, F1/F2 rendus a macOS.", systemImage: "power")
+                Label("Vagalume est desactive: dimming coupe, F1/F2 rendus a macOS.", systemImage: "power")
                     .font(.caption2)
                     .foregroundStyle(.orange)
                     .fixedSize(horizontal: false, vertical: true)
@@ -337,7 +337,7 @@ private struct DisplaySliderView: View {
                 }
 
                 if display.controlKind == .software {
-                    Label("DDC indisponible: BrightBar peut dimmer, pas booster le hardware.", systemImage: "info.circle")
+                    Label("DDC indisponible: Vagalume peut dimmer, pas booster le hardware.", systemImage: "info.circle")
                         .font(.caption2)
                         .foregroundStyle(.blue)
                         .fixedSize(horizontal: false, vertical: true)

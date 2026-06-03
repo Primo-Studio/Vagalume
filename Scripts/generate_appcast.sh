@@ -2,12 +2,12 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_NAME="BrightBar"
+APP_NAME="Vagalume"
 VERSION="${VERSION:-0.1.1}"
 SPARKLE_BIN="$ROOT_DIR/.build/artifacts/sparkle/Sparkle/bin/generate_appcast"
 ZIP_PATH="$ROOT_DIR/dist/$APP_NAME-$VERSION-macOS.zip"
 APPCAST_WORK_DIR="$ROOT_DIR/dist/appcast"
-DOWNLOAD_PREFIX="https://github.com/Primo-Studio/BrightBar/releases/download/v$VERSION/"
+DOWNLOAD_PREFIX="https://github.com/Primo-Studio/Vagalume/releases/download/v$VERSION/"
 
 cd "$ROOT_DIR"
 
@@ -17,7 +17,7 @@ fi
 
 if [[ ! -f "$ZIP_PATH" ]]; then
   echo "Missing update archive: $ZIP_PATH" >&2
-  echo "Run: NOTARY_PROFILE=BrightBar-Notary ./Scripts/package_release.sh --notarize" >&2
+  echo "Run: NOTARY_PROFILE=Vagalume-Notary ./Scripts/package_release.sh --notarize" >&2
   exit 2
 fi
 

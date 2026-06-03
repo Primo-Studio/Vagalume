@@ -2,7 +2,7 @@
 import PackageDescription
 
 let package = Package(
-    name: "BrightBar",
+    name: "Vagalume",
     platforms: [.macOS(.v14)],
     dependencies: [
         .package(url: "https://github.com/waydabber/AppleSiliconDDC.git", revision: "97af3818b9803e51412fb50cac1506db1d73b5bf"),
@@ -10,7 +10,7 @@ let package = Package(
     ],
     targets: [
         .executableTarget(
-            name: "BrightBar",
+            name: "Vagalume",
             dependencies: [
                 .product(name: "AppleSiliconDDC", package: "AppleSiliconDDC"),
                 .product(name: "Sparkle", package: "Sparkle"),
@@ -27,8 +27,8 @@ let package = Package(
             ]
         ),
         .testTarget(
-            name: "BrightBarTests",
-            dependencies: ["BrightBar"]
+            name: "VagalumeTests",
+            dependencies: ["Vagalume"]
         ),
     ]
 )

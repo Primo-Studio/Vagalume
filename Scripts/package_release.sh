@@ -2,8 +2,8 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_NAME="BrightBar"
-BUNDLE_ID="studio.primo.BrightBar"
+APP_NAME="Vagalume"
+BUNDLE_ID="studio.primo.Vagalume"
 TEAM_ID="4QB44XVHNL"
 SIGNING_IDENTITY="${SIGNING_IDENTITY:-Developer ID Application: Primo Studio ($TEAM_ID)}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-}"
@@ -26,7 +26,7 @@ COPYFILE_DISABLE=1 ditto -c -k --norsrc --keepParent "$APP_DIR" "$ZIP_PATH"
 if [[ "$MODE" == "--notarize" || "$MODE" == "notarize" ]]; then
   if [[ -z "$NOTARY_PROFILE" ]]; then
     echo "NOTARY_PROFILE is required for notarization." >&2
-    echo "Create one with: xcrun notarytool store-credentials BrightBar-Notary --team-id $TEAM_ID --apple-id <apple-id>" >&2
+    echo "Create one with: xcrun notarytool store-credentials Vagalume-Notary --team-id $TEAM_ID --apple-id <apple-id>" >&2
     exit 2
   fi
 

@@ -1,5 +1,5 @@
 import XCTest
-@testable import BrightBar
+@testable import Vagalume
 
 final class BrightnessMathTests: XCTestCase {
     func testBrightnessClamping() {

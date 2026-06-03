@@ -2,7 +2,7 @@
 set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-APP_NAME="BrightBar"
+APP_NAME="Vagalume"
 VERSION="${VERSION:-0.1.1}"
 BUILD_NUMBER="${BUILD_NUMBER:-2}"
 SIGNING_IDENTITY="${SIGNING_IDENTITY:-Developer ID Application: Primo Studio (4QB44XVHNL)}"
@@ -35,7 +35,7 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
     <key>CFBundleExecutable</key>
     <string>$APP_NAME</string>
     <key>CFBundleIdentifier</key>
-    <string>studio.primo.BrightBar</string>
+    <string>studio.primo.Vagalume</string>
     <key>CFBundleInfoDictionaryVersion</key>
     <string>6.0</string>
     <key>CFBundleName</key>
@@ -55,7 +55,7 @@ cat > "$CONTENTS_DIR/Info.plist" <<PLIST
     <key>SUEnableAutomaticChecks</key>
     <true/>
     <key>SUFeedURL</key>
-    <string>https://github.com/Primo-Studio/BrightBar/releases/latest/download/appcast.xml</string>
+    <string>https://github.com/Primo-Studio/Vagalume/releases/latest/download/appcast.xml</string>
     <key>SUPublicEDKey</key>
     <string>jLm0dM43ZCL3cMpwt7/pA8Tc2Xll5mkuvwIycQ2va7s=</string>
     <key>SUScheduledCheckInterval</key>

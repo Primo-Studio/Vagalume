@@ -36,9 +36,9 @@ final class BrightnessManager: ObservableObject {
     @Published var isEnabled: Bool
 
     private let defaults = UserDefaults.standard
-    private let prefsKey = "BrightBar.DisplayBrightness.v2"
-    private let nitsPrefsKey = "BrightBar.DisplayMaxNits.v1"
-    private let enabledPrefsKey = "BrightBar.Enabled.v1"
+    private let prefsKey = "Vagalume.DisplayBrightness.v2"
+    private let nitsPrefsKey = "Vagalume.DisplayMaxNits.v1"
+    private let enabledPrefsKey = "Vagalume.Enabled.v1"
     private let hotkeyStep = BrightnessMath.keyboardStep
     private var dimmingWindows: [CGDirectDisplayID: NSWindow] = [:]
     private var pendingKeyboardDelta = 0.0

@@ -1,6 +1,6 @@
 # Privacy
 
-BrightBar does not collect analytics, telemetry, crash reports, personal data,
+Vagalume does not collect analytics, telemetry, crash reports, personal data,
 or display usage data.
 
 The app stores brightness preferences locally with `UserDefaults` on your Mac.

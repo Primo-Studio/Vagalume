@@ -1,6 +1,6 @@
-# BrightBar
+# Vagalume
 
-BrightBar is a lightweight macOS menu bar app for display brightness control.
+Vagalume is a lightweight macOS menu bar app for display brightness control.
 It focuses on the useful part of Lunar: fast brightness control without
 profiles, schedules, cloud accounts, or subscriptions.
 
@@ -8,10 +8,10 @@ profiles, schedules, cloud accounts, or subscriptions.
 
 Download the latest notarized build from GitHub Releases:
 
-https://github.com/Primo-Studio/BrightBar/releases/latest
+https://github.com/Primo-Studio/Vagalume/releases/latest
 
-Unzip `BrightBar-*-macOS.zip`, move `BrightBar.app` to `/Applications`, then
-launch it. macOS may ask for Accessibility permission so BrightBar can intercept
+Unzip `Vagalume-*-macOS.zip`, move `Vagalume.app` to `/Applications`, then
+launch it. macOS may ask for Accessibility permission so Vagalume can intercept
 the brightness keys.
 
 ## Features
@@ -33,14 +33,14 @@ the brightness keys.
 ## Limitations
 
 External display hardware brightness depends on DDC/CI support. Some monitors,
-inputs, USB-C docks, and adapters block DDC commands. When BrightBar shows
+inputs, USB-C docks, and adapters block DDC commands. When Vagalume shows
 `Logiciel`, it can dim visually with an overlay but cannot raise the monitor's
 real hardware brightness.
 
 Nit values are estimates. macOS and DDC/CI expose brightness levels, not
 calibrated luminance readings.
 
-When BrightBar is disabled from the power button, it stops handling F1/F2,
+When Vagalume is disabled from the power button, it stops handling F1/F2,
 unregisters its fallback shortcuts, and removes software dimming overlays.
 
 Local builds are signed with the Primo Studio Developer ID when available so
@@ -82,7 +82,7 @@ Signed release ZIP:
 Notarized release ZIP:
 
 ```sh
-NOTARY_PROFILE=BrightBar-Notary ./Scripts/package_release.sh --notarize
+NOTARY_PROFILE=Vagalume-Notary ./Scripts/package_release.sh --notarize
 ```
 
 Generate the Sparkle appcast after creating the notarized ZIP:
@@ -93,12 +93,12 @@ Generate the Sparkle appcast after creating the notarized ZIP:
 
 ## Updates
 
-BrightBar checks the `appcast.xml` asset from the latest GitHub Release at most
+Vagalume checks the `appcast.xml` asset from the latest GitHub Release at most
 once per day. The footer button can manually trigger "Check for Updates".
 
 ## Privacy
 
-BrightBar does not collect analytics, telemetry, crash reports, personal data,
+Vagalume does not collect analytics, telemetry, crash reports, personal data,
 or display usage data. See [PRIVACY.md](PRIVACY.md).
 
 ## License
